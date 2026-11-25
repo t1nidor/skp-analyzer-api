@@ -91,7 +91,7 @@ def _row(b, desc, ptype, eset, remarks="", red=False, suggested=True):
                 cut_w=r1(cw), cut_dh=r1(cdh),
                 edge=dict(rear=fmt(e.get('rear')), top_left=fmt(e.get('tl')),
                           bot_right=fmt(e.get('br')), front=fmt(e.get('front'))),
-                thickness=r1(min(b['dims'])), remarks=remarks, red=red, suggested=suggested)
+                thickness=r1(min(b['dims'])), kind=kind, remarks=remarks, red=red, suggested=suggested)
 
 def _collapse(rows):
     """identical rows -> one row with qty_per_cabinet"""
