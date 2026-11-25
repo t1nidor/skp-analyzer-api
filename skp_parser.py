@@ -167,6 +167,9 @@ def analyze(raw: bytes, filename: str = "") -> dict[str, Any]:
             od = out_defs[did]
             parts.append(dict(
                 name=name, path=" > ".join(here), definition_id=did,
+                width_mm=dims[0], depth_mm=dims[1], height_mm=dims[2],
+                pos_x_mm=round(wlo[0], 1), pos_y_mm=round(wlo[1], 1), pos_z_mm=round(wlo[2], 1),
+                parent=here[-2] if len(here) > 1 else None, depth_level=len(here) - 1,
                 world_min_mm=[round(x, 1) for x in wlo], world_max_mm=[round(x, 1) for x in whi],
                 dimensions_mm=dict(x=dims[0], y=dims[1], z=dims[2]),
                 local_size_mm=od['size_mm'], thickness_mm=od['thickness_mm'],
