@@ -1,84 +1,31 @@
-
-from fastapi import FastAPI, UploadFile, File, HTTPException
+import time
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pathlib import Path
-from tempfile import NamedTemporaryFile
-from openskp import SkpFile
-import os
+from skp_parser import analyze, SKPError
 
-app = FastAPI(
-    title="SKP Analyzer API",
-    description="SketchUp model analysis service",
-    version="1.0.0"
-)
+app = FastAPI(title="SKP Analyzer API")
+app.add_middleware(CORSMiddleware, allow_origins=["*"],  # replace * with your Vibe app URL
+                   allow_methods=["GET", "POST"], allow_headers=["*"])
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Restrict to your Vibe app domain in production
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/")
-def home():
-    return {
-        "status": "online",
-        "service": "SKP Analyzer API"
-    }
+MAX_MB = 100
 
 @app.get("/health")
 def health():
-    return {"status": "healthy"}
+    return {"status": "ok", "service": "skp-analyzer-api"}
 
 @app.post("/api/analyze")
 async def analyze_skp(file: UploadFile = File(...)):
-
-    if not file.filename.lower().endswith(".skp"):
-        raise HTTPException(
-            status_code=400,
-            detail="Only .skp files are accepted"
-        )
-
-    content = await file.read()
-
-    if not content:
-        raise HTTPException(
-            status_code=400,
-            detail="Uploaded file is empty"
-        )
-
-    if len(content) > 100 * 1024 * 1024:
-        raise HTTPException(
-            status_code=413,
-            detail="File exceeds 100 MB limit"
-        )
-
-    temp_path = None
-
+    if not (file.filename or "").lower().endswith(".skp"):
+        raise HTTPException(status_code=400, detail="Only .skp files are accepted.")
+    raw = await file.read()
+    if len(raw) > MAX_MB * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"File larger than {MAX_MB} MB.")
+    t0 = time.time()
     try:
-        with NamedTemporaryFile(
-            suffix=".skp", delete=False
-        ) as temp:
-            temp.write(content)
-            temp_path = temp.name
-
-        model = SkpFile.open(temp_path).parse()
-
-        return {
-            "status": "success",
-            "filename": file.filename,
-            "analysis": {
-                "materials": len(model.materials),
-                "model_parsed": True
-            }
-        }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Could not parse SKP file: {str(e)}"
-        )
-
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            os.remove(temp_path)
+        result = analyze(raw, file.filename)
+    except SKPError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:  # never return fake data
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {type(e).__name__}: {e}")
+    result["processing_seconds"] = round(time.time() - t0, 2)
+    return result
