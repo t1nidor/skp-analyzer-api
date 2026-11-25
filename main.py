@@ -2,6 +2,7 @@ import time
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from skp_parser import analyze, SKPError
+from cutlist import build as build_cutting_list
 
 app = FastAPI(title="SKP Analyzer API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"],  # replace * with your Vibe app URL
@@ -23,6 +24,7 @@ async def analyze_skp(file: UploadFile = File(...)):
     t0 = time.time()
     try:
         result = analyze(raw, file.filename)
+        result['cutting_list'] = build_cutting_list(raw)
     except SKPError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:  # never return fake data
