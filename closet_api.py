@@ -1,6 +1,6 @@
 import closet, closet_xlsx
 NOTES = [
- "Standard board thickness 18.2mm. Standard parts are formulas on the cabinet W / D / H (same as your template); variable parts (fascia, fillers, baseboards, cover panels, bottom cover panels, worktops, modesty panels, corner posts, drawer parts) are measured from the SKP.",
+ "Calculations use 18.2mm for 18mm boards and 16.2mm for 16mm boards (taken from the carcass side panels). Standard parts are formulas on the cabinet W / D / H (same as your template); variable parts (fascia, fillers, baseboards, cover panels, bottom cover panels, worktops, modesty panels, corner posts, drawer parts) are measured from the SKP.",
  "Exterior = exposed panel sides (1mm edging). Interior = hidden panel sides (0.5mm edging). Bubble edging (0.6-0.8mm) is rounded to 0.5mm in the calculation and is used on the front edge of cabinets with doors.",
  "Doors with pre-milling: cut size = finish - edging + 0.5mm per edge (+1mm per dimension).",
  "Backing groove: 9mm backing = 10mm groove, 6mm = 7.5mm, 3mm = 5mm, depth always 5mm. Top, bottom and side panels are grooved; on base cabinets only the side panels. Backing size = inside size + 2 x 5mm groove depth. Backing groove is different from an LED groove (14 x 7mm), which is shown as w/ LED.Groove.",

@@ -6,7 +6,10 @@ from collections import defaultdict
 import skp_parser as S
 
 IN = S.IN
-T = 18.2                       # standard board thickness (cutting list)
+T = 18.2                       # default board thickness (18mm board)
+def tnom(t):
+    """measured board thickness -> (nominal mm, calculation thickness): 18mm board = 18.2, 16mm board = 16.2"""
+    n = int(round(t)); return n, n + 0.2
 GROOVE_W = {9: 10.0, 6: 7.5, 3: 5.0}   # backing thickness -> groove width
 GROOVE_D = 5.0
 EXT, INT, BUB, NONE = "Exterior Edging 1mm", "Interior Edging 0.5mm", "Exterior Edging Bubble\n0.6mm or 0.8mm", "-"
@@ -122,11 +125,12 @@ def row(key, qty, desc, W, DH, mat, edges, kind, remarks="", grain="", premill=F
 
 def _ev(expr, env):
     if isinstance(expr, (int, float)): return float(expr)
+    T = env.get('T', 18.2)
     e = re.sub(r'\[(\w+)\.(W|DH)\]', lambda m: repr(env['rows'][m.group(1)][m.group(2)]), expr)
     return float(eval(e, {}, dict(J=env['J'], K=env['K'], L=env['L'], T=T)))
 
-def finalize(rows, J, K, L):
-    env = dict(J=J, K=K, L=L, rows={})
+def finalize(rows, J, K, L, Tc=T):
+    env = dict(J=J, K=K, L=L, T=Tc, rows={})
     for r in rows:
         r['W_val'] = r1(_ev(r['W'], env)); r['DH_val'] = r1(_ev(r['DH'], env))
         env['rows'][r['key']] = dict(W=r['W_val'], DH=r['DH_val'])
@@ -147,6 +151,9 @@ def build_cabinet_rows(info, roles):
     wall = wall and not base
     doors = sorted(roles['door'], key=lambda b: b['L']['u0'])
     nd = len(doors)
+    sd = [min(b['d']) for b in roles['side']]
+    nb, Tc = tnom(sum(sd) / len(sd)) if sd else (18, T)
+    INT_BOARD = f"{nb}mm Interior Board"
     tb = 0
     for b in roles['backing']: tb = r1(min(b['d']))
     gw = GROOVE_W.get(int(tb), GROOVE_W[9]) if tb else GROOVE_W[9]
@@ -252,8 +259,8 @@ def build_cabinet_rows(info, roles):
         else:
             wexpr = "J-2" if nd == 1 else "J/2-2"
             rows.append(row('door', nd, "Door", wexpr, "L-5", EXT_BOARD, [EXT] * 4, 'v', grain="VG", premill=True))
-    meta = dict(nd=nd, corner=corner, wall=wall, base=base, drawers=has_dwr, tb=tb, groove_w=gw)
-    return finalize(rows, W, D, H), meta
+    meta = dict(nd=nd, corner=corner, wall=wall, base=base, drawers=has_dwr, tb=tb, groove_w=gw, T=Tc, board=nb)
+    return finalize(rows, W, D, H, Tc), meta
 
 def cabinet_title(W, D, H, meta):
     n = meta['nd']
@@ -399,8 +406,9 @@ def blocks(res):
         # cover panels
         for lvl, title in (('wall', "Cover Panel @ Wall Cabinet"), ('closet', "Cover Panel @ Closet Cabinet")):
             for (length, height), n in grp(P('cover', lvl), lambda b: (r1(b['d'][1 - b['thin']]), r1(b['d'][2]))).items():
-                rows = finalize([row('cover', 1, "Cover Panel", "K", height, EXT_BOARD, [EXT] * 4, 'v', grain="VG")], T, length, height)
-                out.append(dict(name=title, elev=e, qty=n, W=T, D=length, H=height, rows=rows, kind='panel'))
+                tcv = tnom(min(P('cover', lvl)[0]['d']))
+                rows = finalize([row('cover', 1, "Cover Panel", "K", height, f"{tcv[0]}mm Exterior Board", [EXT] * 4, 'v', grain="VG")], tcv[1], length, height, tcv[1])
+                out.append(dict(name=title, elev=e, qty=n, W=tcv[1], D=length, H=height, rows=rows, kind='panel', T=tcv[1]))
         order = sorted([c for c in cabs if c['meta']['wall']], key=lambda c: (c['info']['W'], c['root'])) + \
                 sorted([c for c in cabs if not c['meta']['wall']], key=lambda c: (c['info']['W'], c['root']))
         # identical cabinets merge
@@ -409,7 +417,7 @@ def blocks(res):
             title = cabinet_title(c['info']['W'], c['info']['D'], c['info']['H'], c['meta'])
             sig = (title, c['info']['W'], c['info']['H'], tuple((r['desc'], r['W_val'], r['DH_val'], r['qty']) for r in c['rows']))
             if sig in seen: seen[sig]['qty'] += 1; continue
-            blk = dict(name=title, elev=e, qty=1, W=c['info']['W'], D=c['info']['D'], H=c['info']['H'], rows=c['rows'], kind='cabinet', meta=c['meta'])
+            blk = dict(name=title, elev=e, qty=1, W=c['info']['W'], D=c['info']['D'], H=c['info']['H'], rows=c['rows'], kind='cabinet', meta=c['meta'], T=c['meta']['T'])
             seen[sig] = blk; out.append(blk)
         # fillers
         for lvl, title in (('wall', "Filler @ Wall Cabinet"), ('closet', "Filler @ Closet Cabinet")):

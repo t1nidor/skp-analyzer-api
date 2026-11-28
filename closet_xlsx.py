@@ -4,12 +4,12 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from closet import T
 
-def _formula(expr, hdr, rowref):
+def _formula(expr, hdr, rowref, Tc=T):
     """python-style expression -> Excel formula on header cells J/K/L (hdr = header values row)"""
     if isinstance(expr, (int, float)): return expr
     e = re.sub(r'\[(\w+)\.(W|DH)\]', lambda m: ('D' if m.group(2) == 'W' else 'E') + str(rowref[m.group(1)]), expr)
     e = re.sub(r'\b([JKL])\b', lambda m: f"{m.group(1)}{hdr}", e)
-    e = e.replace('T', repr(T))
+    e = e.replace('T', repr(Tc))
     return "=" + e
 
 def to_xlsx(blocks, notes, ignored, material_note="") -> bytes:
@@ -61,7 +61,8 @@ def to_xlsx(blocks, notes, ignored, material_note="") -> bytes:
                 c = ws.cell(rr, col); c.border = box; c.font = F(size=10); c.alignment = ctr
             ws.cell(rr, 2, f"=N{rr}*I{hdr}").font = F(size=10, bold=True)
             ws.cell(rr, 3, x['desc'])
-            ws.cell(rr, 4, _formula(x['W'], hdr, rowref)); ws.cell(rr, 5, _formula(x['DH'], hdr, rowref))
+            tc = blk.get('T', T)
+            ws.cell(rr, 4, _formula(x['W'], hdr, rowref, tc)); ws.cell(rr, 5, _formula(x['DH'], hdr, rowref, tc))
             ws.cell(rr, 6, x['mat'])
             if x['dw'] or x['pm']:
                 fw = f"=D{rr}-{x['dw']:g}" + (f"+{x['pm']:g}" if x['pm'] else "")
